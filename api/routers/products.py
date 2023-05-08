@@ -8,7 +8,7 @@ from pymongo.server_api import ServerApi
 from pymongo.collection import ReturnDocument
 
 from dotenv import load_dotenv
-# load_dotenv()
+load_dotenv()
 import os
 
 
