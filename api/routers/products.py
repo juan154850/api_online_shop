@@ -7,7 +7,11 @@ from api.database import DataBase
 from pymongo.server_api import ServerApi
 from pymongo.collection import ReturnDocument
 
+from dotenv import load_dotenv
+# load_dotenv()
 import os
+
+
 
 
 product_router = APIRouter(
@@ -25,6 +29,7 @@ async def get_products() -> List[ProductDataBase]:
 
     all_products = ProductDataBase.products_schema(
         self=ProductDataBase, product_list=db_client.db_products.products.find())
+    
     return JSONResponse(content=all_products, status_code=200)
 
 
@@ -53,6 +58,14 @@ async def get_product(key: str, value: str) -> List[Product]:
 
 @product_router.post("", status_code=status.HTTP_201_CREATED, response_model=Product)
 async def create_product(product: Product) -> Product:
+
+    # Validation
+    all_products = ProductDataBase.products_schema(
+        self=ProductDataBase, product_list=db_client.db_products.products.find())
+    
+    if (len(all_products) >= 50):
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail={"Message":"Database full."})
+
     product_dict = dict(product)
     id = db_client.db_products.products.insert_one(product_dict).inserted_id
     new_product = Product.product_schema(

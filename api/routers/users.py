@@ -15,6 +15,9 @@ from bson import ObjectId
 
 import os
 
+from dotenv import load_dotenv
+# load_dotenv()
+
 
 # from fastapi import APIRouter, status, HTTPException, Depends, Form
 # # from db.models.auth_model import User, UserDb
@@ -71,6 +74,13 @@ async def get_users(key: str, value: str):
 
 @users_router.post("/", response_class=JSONResponse, response_model=UserDb)
 async def create_account(account: UserDb) -> UserDb:
+
+    all_users = User.users_schema(
+        self=User, users_list=db_client.db_users.users.find())
+
+    if (len(all_users) >= 50):
+        raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail={"Message":"Database full."})
+
     if (not (db_client.db_users.users.find_one(filter={"email": account.email}))):
         if (not (db_client.db_users.users.find_one(filter={"cellphone": account.cellphone}))):
             new_account = account.dict()
