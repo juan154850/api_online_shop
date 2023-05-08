@@ -104,15 +104,22 @@ async def update_product(product_id: str, key: str, value: str | int) -> Product
 
 
 @product_router.put("/{product_id}", response_class=JSONResponse, response_model=Product)
-async def update_product(product_id: str, new_product: Product) -> Product:
+async def update_product(product_id: str, new_product: dict) -> Product:
     product = (db_client.db_products.products.find_one(
         filter={"_id": ObjectId(product_id)}))
     if (type(product) == type(dict())):
         # The product exists in the database and we can update all the product
-        new_product_dict = dict(new_product)
-        result = Product.product_schema(db_client.db_products.products.find_one_and_replace(
-            filter={"_id": ObjectId(product_id)}, replacement=new_product_dict, return_document=ReturnDocument.AFTER))
-        return JSONResponse(content=result, status_code=status.HTTP_200_OK)
+        # new_product_dict = dict(new_product)
+
+
+        actual_product = (db_client.db_products.products.find_one({"_id":ObjectId(product_id)}))             
+        for key in new_product:                
+            if( not actual_product.get(key)):                
+                raise HTTPException(status_code=406,detail={"Message":"Any key is invalid."})            
+        # end for 
+        result = db_client.db_products.products.find_one_and_update({'_id': ObjectId(product_id)}, {'$set': new_product}, return_document=ReturnDocument.AFTER) 
+        # result = Product.product_schema(db_client.db_products.products.find_one_and_replace(filter={"_id": ObjectId(product_id)}, replacement=new_product, return_document=ReturnDocument.AFTER))
+        return JSONResponse(content=ProductDataBase.product_schema(result), status_code=status.HTTP_200_OK)
     else:
         raise HTTPException(404, detail="The product does not exists...")
 
