@@ -1,0 +1,1 @@
+#id, number of transactions, mount of payment, date of payment, buyer information
