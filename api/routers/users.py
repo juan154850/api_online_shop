@@ -14,7 +14,6 @@ from passlib.context import CryptContext
 from bson import ObjectId
 
 import os
-from dotenv import load_dotenv
 
 
 # from fastapi import APIRouter, status, HTTPException, Depends, Form
@@ -30,7 +29,7 @@ from dotenv import load_dotenv
 
 users_router = APIRouter(prefix="/users", tags=["Users"])
 
-load_dotenv()
+
 URI = os.getenv("URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 db_client = DataBase(URI, ServerApi("1")).db_client

@@ -7,10 +7,7 @@ from api.database import DataBase
 from pymongo.server_api import ServerApi
 from pymongo.collection import ReturnDocument
 
-from dotenv import load_dotenv
 import os
-
-load_dotenv()
 
 
 product_router = APIRouter(
