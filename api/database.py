@@ -12,3 +12,12 @@ class DataBase:
             print("Pinged your deployment. You successfully connected to MongoDB!")
         except Exception as e:
             print(e)
+    
+    def get_user(self, data_base: str, table_name: str, field: str, key: str):
+        db = self.db_client[data_base]
+        collection = db[table_name]
+        result = collection.find_one({field: key})
+        if(result):
+            return result
+        else:
+            return False        

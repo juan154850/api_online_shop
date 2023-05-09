@@ -31,7 +31,7 @@ class User(BaseModel):
     def users_schema(self, users_list: List['User']) -> List['User']:
         return [
             self.user_schema(value) for value in users_list
-        ]
+        ]    
 
 
 class UserDb(User):    
@@ -50,3 +50,9 @@ class UserDb(User):
             "address": "Av 123 #45-6, Medellín, Colombia",
             "cellphone": "+573002827310",
         }}
+
+    def is_admin(self):
+        if (self.role.lower() == "admin"):
+            return True
+        else:
+            return False

@@ -1,15 +1,19 @@
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, status, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from api.models.user import User, UserDb
+from api.models.token import Token
 from api.database import DataBase
 
 from pymongo.server_api import ServerApi
 from pymongo.collection import ReturnDocument
 
 from typing import List
-
 from passlib.context import CryptContext
+from datetime import timedelta, datetime
+
+
 
 from bson import ObjectId
 
@@ -17,7 +21,6 @@ import os
 
 from dotenv import load_dotenv
 load_dotenv()
-
 
 # from fastapi import APIRouter, status, HTTPException, Depends, Form
 # # from db.models.auth_model import User, UserDb
@@ -33,20 +36,35 @@ load_dotenv()
 users_router = APIRouter(prefix="/users", tags=["Users"])
 
 
+
 URI = os.getenv("URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
-db_client = DataBase(URI, ServerApi("1")).db_client
+ALGORITHM = os.getenv("ALGORITHM")
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+db_client = DataBase(URI, ServerApi("1"))
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 crypt = CryptContext(schemes=["bcrypt"])
 # crypt.
 
 # #This method show the data.
 
+token = Token
+test_create_access_token = token.create_access_token(data={"sub":"backend@onlineshop.com"}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+print(test_create_access_token)
+test_verify_password = token.verify_password("123456","$2b$12$ZLKSnTjGmdNdseQerw.Ou.vInH5PY2WRXInQuG3zJBRzWJyJabcSS")
+print(test_verify_password)
+test_authenticate_user = token.authenticate_user(token, db_client, "juan.bermudez@onlineshop.com", "123456")
+print(test_authenticate_user)
+
 
 @users_router.get("", response_class=JSONResponse, response_model=User)
-async def get_users() -> List[User]:
+async def get_users() -> List[User]:    
+
     all_users = User.users_schema(
-        self=User, users_list=db_client.db_users.users.find())
+        self=User, users_list=db_client.db_client.db_users.users.find())      
     return JSONResponse(content=all_users, status_code=200)
 
 
@@ -54,17 +72,18 @@ async def get_users() -> List[User]:
 async def get_users(key: str, value: str):
     try:
         if key == "id":
-            user = User.users_schema(
-                self=User, users_list=db_client.db_users.users.find({"_id": ObjectId(value)}))
-            if (len(user) > 0):
+            user = db_client.db_client.db_users.users.find_one({"_id": ObjectId(value)})            
+            if(user):                
+                user = User.user_schema(user=user)                
+            if (len(user) > 0):                                
                 return JSONResponse(
                     content=User.users_schema(
-                        self=User, users_list=db_client.db_users.users.find({"_id": ObjectId(value)})),
+                        self=User, users_list=db_client.db_client.db_users.users.find({"_id": ObjectId(value)})),
                     status_code=status.HTTP_200_OK
                 )
         else:
             all_users_by_field = User.users_schema(
-                self=User, users_list=db_client.db_users.users.find({key: value}))
+                self=User, users_list=db_client.db_client.db_users.users.find({key: value}))
             if len(all_users_by_field) > 0:
                 return JSONResponse(content=all_users_by_field, status_code=status.HTTP_200_OK)
     except:
@@ -73,16 +92,15 @@ async def get_users(key: str, value: str):
 
 
 @users_router.post("/", response_class=JSONResponse, response_model=UserDb)
-async def create_account(account: UserDb) -> UserDb:
-
+async def create_account(account: UserDb) -> UserDb:    
     all_users = User.users_schema(
-        self=User, users_list=db_client.db_users.users.find())
+        self=User, users_list=db_client.db_client.db_users.users.find())
 
     if (len(all_users) >= 50):
         raise HTTPException(status_code=status.HTTP_406_NOT_ACCEPTABLE, detail={"Message":"Database full."})
 
-    if (not (db_client.db_users.users.find_one(filter={"email": account.email}))):
-        if (not (db_client.db_users.users.find_one(filter={"cellphone": account.cellphone}))):
+    if (not (db_client.db_client.db_users.users.find_one(filter={"email": account.email}))):
+        if (not (db_client.db_client.db_users.users.find_one(filter={"cellphone": account.cellphone}))):
             new_account = account.dict()
             if new_account["email"] == "juan.bermudez@onlineshop.com":
                 new_account["role"] = "admin"
@@ -90,9 +108,9 @@ async def create_account(account: UserDb) -> UserDb:
                 new_account["role"] = "user"
             new_account["password"] = crypt.hash(secret=SECRET_KEY)
             del new_account["id"]
-            id = db_client.db_users.users.insert_one(new_account).inserted_id
+            id = db_client.db_client.db_users.users.insert_one(new_account).inserted_id
             new_account = UserDb.user_schema(
-                db_client.db_users.users.find_one(filter={"_id": id}))
+                db_client.db_client.db_users.users.find_one(filter={"_id": id}))
             return JSONResponse(dict(new_account), status_code=201)
         else:
             raise HTTPException(404, "This cellphone already exists.")
@@ -126,8 +144,8 @@ async def create_account(account: UserDb) -> UserDb:
 async def update_user(account_id: str, new_user: dict) -> UserDb:        
     try:
         # Validate the item...        
-        if(type(db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):                                    
-            actual_user = (db_client.db_users.users.find_one({"_id":ObjectId(account_id)}))             
+        if(type(db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):                                    
+            actual_user = (db_client.db_client.db_users.users.find_one({"_id":ObjectId(account_id)}))             
             for key in new_user:                
                 if( not actual_user.get(key)):
                     error = {"Message":"Any key is invalid."}
@@ -135,7 +153,7 @@ async def update_user(account_id: str, new_user: dict) -> UserDb:
                 if(key == "password"):
                     new_user["password"] = crypt.hash(secret=SECRET_KEY)
             # end for            
-            updated_user = db_client.db_users.users.find_one_and_update({'_id': ObjectId(account_id)}, {'$set': new_user}, return_document=ReturnDocument.AFTER)            
+            updated_user = db_client.db_client.db_users.users.find_one_and_update({'_id': ObjectId(account_id)}, {'$set': new_user}, return_document=ReturnDocument.AFTER)            
             return JSONResponse(content=UserDb.user_schema(updated_user))
         else:
             error = {"Message":"This user does not exist."}
@@ -148,9 +166,9 @@ async def update_user(account_id: str, new_user: dict) -> UserDb:
 @users_router.delete("/{account_id}")
 async def delete_user(account_id: str):
     try:
-        if (type(db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):
+        if (type(db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):
             print("The user exist.")
-            db_client.db_users.users.find_one_and_delete(
+            db_client.db_client.db_users.users.find_one_and_delete(
                 filter={"_id": ObjectId(account_id)})
             return JSONResponse(content={"Message": "User deleted successfully"}, status_code=200)
         else:
