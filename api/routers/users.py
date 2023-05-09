@@ -15,8 +15,8 @@ from bson import ObjectId
 
 import os
 
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 
 # from fastapi import APIRouter, status, HTTPException, Depends, Form
