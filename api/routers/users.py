@@ -1,9 +1,7 @@
 from fastapi import APIRouter, status, HTTPException, Depends
 from fastapi.responses import JSONResponse
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 
 from api.models.user import User, UserDb
-from api.models.token import Token
 from api.database import DataBase
 
 from pymongo.server_api import ServerApi
@@ -11,9 +9,8 @@ from pymongo.collection import ReturnDocument
 
 from typing import List
 from passlib.context import CryptContext
-from datetime import timedelta, datetime
-from typing import Annotated
 from api.routers.token import oauth2_scheme
+from jose import jwt
 
 from bson import ObjectId
 
@@ -39,34 +36,42 @@ crypt = CryptContext(schemes=["bcrypt"], deprecated="auto")
 @users_router.get("", response_class=JSONResponse, response_model=User)
 async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
 
-    all_users = User.users_schema(
-        self=User, users_list=db_client.db_client.db_users.users.find())
-    return JSONResponse(content=all_users, status_code=200)
-
-
-@users_router.get("/{key}")
-async def get_users(key: str, value: str):
     try:
-        if key == "id":
-            user = db_client.db_client.db_users.users.find_one(
-                {"_id": ObjectId(value)})
-            if (user):
-                user = User.user_schema(user=user)
-
-            if (len(user) > 0):
-                return JSONResponse(
-                    content=User.users_schema(
-                        self=User, users_list=db_client.db_client.db_users.users.find({"_id": ObjectId(value)})),
-                    status_code=status.HTTP_200_OK
-                )
+        error = ""
+        token = jwt.decode(token, SECRET_KEY, ALGORITHM)
+        user = db_client.db_client.db_users.users.find_one(
+            {"email": token["sub"]})
+        if ((type(user) != None) and (user["role"].lower() == "admin")):
+            all_users = User.users_schema(
+                self=User, users_list=db_client.db_client.db_users.users.find())
+            return JSONResponse(content=all_users, status_code=200)
         else:
-            all_users_by_field = User.users_schema(
-                self=User, users_list=db_client.db_client.db_users.users.find({key: value}))
-            if len(all_users_by_field) > 0:
-                return JSONResponse(content=all_users_by_field, status_code=status.HTTP_200_OK)
+            error = {"Message": "Not authorized"}
+            raise error
+    except:
+        raise HTTPException(status_code=400, detail=error)
+
+
+@users_router.get("/{id}")
+async def get_users(id: str, token: str = Depends(oauth2_scheme)):
+
+    error = {"Message": "Error in except"}
+    try:
+        token = jwt.decode(token, SECRET_KEY, ALGORITHM)
+        user_token = db_client.db_client.db_users.users.find_one(
+            {"email": token["sub"]})
+        if (type(user_token) != type(None)):
+            user = db_client.db_client.db_users.users.find_one(
+                {"_id": ObjectId(id)})
+            if (((type(user) != type(None)) and ((user_token["_id"] == user["_id"]))) or ((type(user) != type(None)) and (user_token["role"].lower() == "admin"))):
+                return JSONResponse(content=User.user_schema(user), status_code=200)
+            else:
+                error = {
+                    "Message": "The user does not exits or you don not authorized for this action."}
+                raise error
     except:
         raise HTTPException(
-            status_code=404, detail="The user does not exists.")
+            status_code=404, detail=error)
 
 
 @users_router.post("/", response_class=JSONResponse, response_model=UserDb)
@@ -102,22 +107,39 @@ async def create_account(account: UserDb) -> UserDb:
 
 
 @users_router.put("/{account_id}", response_class=JSONResponse, response_model=UserDb)
-async def update_user(account_id: str, new_user: dict) -> UserDb:
+async def update_user(account_id: str, new_user: dict, token: str = Depends(oauth2_scheme)) -> UserDb:
+
+    error = {
+        "Message": "Internal server error, please contact and administrator and report the bug."}
+
     try:
-        # Validate the item...
-        if (type(db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):
-            actual_user = (db_client.db_client.db_users.users.find_one(
-                {"_id": ObjectId(account_id)}))
-            for key in new_user:
-                if (not actual_user.get(key)):
-                    error = {"Message": "Any key is invalid."}
-                    raise error
-                if (key == "password"):
-                    new_user["password"] = crypt.hash(secret=SECRET_KEY)
-            # end for
-            updated_user = db_client.db_client.db_users.users.find_one_and_update(
-                {'_id': ObjectId(account_id)}, {'$set': new_user}, return_document=ReturnDocument.AFTER)
-            return JSONResponse(content=UserDb.user_schema(updated_user))
+
+        token = jwt.decode(token, SECRET_KEY, ALGORITHM)
+        user_token = db_client.db_client.db_users.users.find_one(
+            {"email": token["sub"]})
+
+        if (type(user_token) != type(None)):
+            user = db_client.db_client.db_users.users.find_one(
+                {"_id": ObjectId(account_id)})
+            if (((type(user) != type(None)) and ((user_token["_id"] == user["_id"]))) or ((type(user) != type(None)) and (user_token["role"].lower() == "admin"))):
+                for key in new_user:
+                    if (not user.get(key)):
+                        error = {"Message": "Any key is invalid."}
+                        raise error
+                    if (key == "password"):
+                        new_user["password"] = crypt.hash(
+                            secret=new_user["password"])
+                    if (key == "role" and user_token["role"].lower() != "admin"):
+                        error = {"Message": "Not authorized"}
+                        raise error
+                # end for
+                updated_user = db_client.db_client.db_users.users.find_one_and_update(
+                    {'_id': ObjectId(account_id)}, {'$set': new_user}, return_document=ReturnDocument.AFTER)
+                return JSONResponse(content=UserDb.user_schema(updated_user))
+            else:
+                error = {
+                    "Message": "The user does not exits or you don not authorized for this action."}
+                raise error
         else:
             error = {"Message": "This user does not exist."}
             raise error
@@ -127,16 +149,25 @@ async def update_user(account_id: str, new_user: dict) -> UserDb:
 
 
 @users_router.delete("/{account_id}")
-async def delete_user(account_id: str):
+async def delete_user(account_id: str, token: str = Depends(oauth2_scheme)):
+
     try:
+        token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         if (type(db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):
-            print("The user exist.")
-            db_client.db_client.db_users.users.find_one_and_delete(
-                filter={"_id": ObjectId(account_id)})
-            return JSONResponse(content={"Message": "User deleted successfully"}, status_code=200)
+
+            user = db_client.db_client.db_users.users.find_one(
+                {"email": token["sub"]})
+            if ((type(user) != type(None)) and (user["role"].lower() == "admin")):
+
+                db_client.db_client.db_users.users.find_one_and_delete(
+                    filter={"_id": ObjectId(account_id)})
+                return JSONResponse(content={"Message": "User deleted successfully"}, status_code=200)
+            else:
+                error = {"Message": "Not authorized"}
+                raise error
         else:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={
-                                "Message": "This user does not exist."})
+            error = {"Message": "This user does not exist."}
+            raise error
     except:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={
-                            "Message": "This user does not exist."})
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=error)

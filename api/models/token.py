@@ -30,7 +30,7 @@ class Token(BaseModel):
         else:
             expire = datetime.utcnow() + timedelta(minutes=1)
         to_encode.update({"exp": expire})    
-        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)    
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)            
         return encoded_jwt
     
     # token.verify_password("123456","$2b$12$ZLKSnTjGmdNdseQerw.Ou.vInH5PY2WRXInQuG3zJBRzWJyJabcSS")
@@ -44,8 +44,9 @@ class Token(BaseModel):
             return False
         if not self.verify_password(password, user["password"]):
             return False
-        return user
+        return user    
+
 
 
 class TokenData(BaseModel):
-    username: str | None = None
+    email: str | None = None
