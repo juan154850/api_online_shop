@@ -12,6 +12,8 @@ from pymongo.collection import ReturnDocument
 from typing import List
 from passlib.context import CryptContext
 from datetime import timedelta, datetime
+from typing import Annotated
+from api.routers.token import oauth2_scheme
 
 from bson import ObjectId
 
@@ -31,13 +33,11 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 db_client = DataBase(URI, ServerApi("1"))
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-crypt = CryptContext(schemes=["bcrypt"])
+crypt = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @users_router.get("", response_class=JSONResponse, response_model=User)
-async def get_users() -> List[User]:
+async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
 
     all_users = User.users_schema(
         self=User, users_list=db_client.db_client.db_users.users.find())
@@ -52,6 +52,7 @@ async def get_users(key: str, value: str):
                 {"_id": ObjectId(value)})
             if (user):
                 user = User.user_schema(user=user)
+
             if (len(user) > 0):
                 return JSONResponse(
                     content=User.users_schema(
@@ -84,7 +85,9 @@ async def create_account(account: UserDb) -> UserDb:
                 new_account["role"] = "admin"
             else:
                 new_account["role"] = "user"
-            new_account["password"] = crypt.hash(secret=SECRET_KEY)
+            print(new_account["password"])
+            new_account["password"] = crypt.hash(
+                secret=new_account["password"])
             del new_account["id"]
             id = db_client.db_client.db_users.users.insert_one(
                 new_account).inserted_id
