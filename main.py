@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Request, HTTPException
 from api.routers.products import product_router
 from api.routers.users import users_router
+from api.routers.token import token_router
+
 # from api.routers.users import auth_router
 # from routers.vip_products import vip_products_router
 # from routers.auth_forms import auth_router_forms
@@ -23,6 +25,7 @@ app.version = "0.0.1"
 # Routers.
 app.include_router(router=product_router)
 app.include_router(router=users_router)
+app.include_router(router=token_router)
 # app.include_router(router=vip_products_router)
 # app.include_router(router=auth_router_forms)
 
