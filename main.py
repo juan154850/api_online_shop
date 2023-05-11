@@ -8,7 +8,7 @@ from api.routers.token import token_router
 # from routers.auth_forms import auth_router_forms
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
+# from fastapi.staticfiles import StaticFiles
 # from api.models.product import Product
 # from db.database import db_client
 # from bson import ObjectId
@@ -19,7 +19,7 @@ from fastapi.staticfiles import StaticFiles
 app = FastAPI()
 app.title = "Online Shop Project"
 app.version = "0.0.1"
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
 # Routers.
@@ -30,8 +30,8 @@ app.include_router(router=token_router)
 # app.include_router(router=auth_router_forms)
 
 
-@app.get("/")
-async def index(request: Request):
+@app.get("/", response_model= dict , response_class=HTMLResponse)
+async def index(request: Request) -> HTMLResponse:
     # search in the data base and return the products
     template = "index.html"
     context = {"request": request}
