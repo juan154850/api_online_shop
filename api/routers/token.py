@@ -7,7 +7,7 @@ from api.database import DataBase
 
 from pymongo.server_api import ServerApi
 from typing import Annotated
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 import os
 from dotenv import load_dotenv
@@ -36,5 +36,5 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 
     access_token = token.create_access_token(
         data={"sub": user["email"]}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    response.set_cookie("access_token", access_token)
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True)    
     return {"access_token": access_token, "token_type": "bearer"}

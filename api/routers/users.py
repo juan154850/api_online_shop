@@ -1,8 +1,9 @@
-from fastapi import APIRouter, status, HTTPException, Depends
+from fastapi import APIRouter, status, HTTPException, Depends, Response
 from fastapi.responses import JSONResponse
 
 from api.models.user import User, UserDb
 from api.database import DataBase
+from api.models.token import Token
 
 from pymongo.server_api import ServerApi
 from pymongo.collection import ReturnDocument
@@ -26,7 +27,6 @@ users_router = APIRouter(prefix="/users", tags=["Users"])
 URI = os.getenv("URI")
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 db_client = DataBase(URI, ServerApi("1"))
 
@@ -34,10 +34,14 @@ crypt = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @users_router.get("", response_class=JSONResponse, response_model=User)
-async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
+async def get_users(response: Response, token: str = Depends(oauth2_scheme)) -> List[User]:
 
-    try:
-        error = ""
+    # error = "Internal server error, please report the bug with the administrator of the page."
+    # try:
+
+        # print(f"Actual token: {token}")
+        # token = Token.update_token(token)             
+        # print(f"Updated token: {token}")
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         user = db_client.db_client.db_users.users.find_one(
             {"email": token["sub"]})
@@ -48,14 +52,15 @@ async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
         else:
             error = {"Message": "Not authorized"}
             raise error
-    except:
-        raise HTTPException(status_code=400, detail=error)
+    # except:
+    #     raise HTTPException(status_code=400, detail=error)
 
 
 @users_router.get("/{id}")
 async def get_users(id: str, token: str = Depends(oauth2_scheme)):
 
     error = {"Message": "Error in except"}
+    # token = Token.update_token(token)
     try:
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         user_token = db_client.db_client.db_users.users.find_one(
@@ -111,6 +116,7 @@ async def update_user(account_id: str, new_user: dict, token: str = Depends(oaut
 
     error = {
         "Message": "Internal server error, please contact and administrator and report the bug."}
+    # token = Token.update_token(token)
 
     try:
 
@@ -132,7 +138,32 @@ async def update_user(account_id: str, new_user: dict, token: str = Depends(oaut
                     if (key == "role" and user_token["role"].lower() != "admin"):
                         error = {"Message": "Not authorized"}
                         raise error
+                    if ((key == "role") and (new_user["role"] not in ["user", "admin"])):
+                        error = {"Message": "Invalid rol"}
+                        raise error
+                    if key == "email":
+                        # validate if the email exist, if the email not exits, could can be use it.
+                        search_email = db_client.db_client.db_users.users.find_one(
+                            {"email": new_user["email"]})
+                        if type(search_email) == type(None):
+                            # The email is free
+                            # Validate the structure of the email
+                            is_a_valid_email = User.validate_email(
+                                new_user["email"])
+                            if not is_a_valid_email:
+                                error = {"Message": "Invalid email"}
+                                raise error
+                        else:
+                            error = {
+                                "Message": "This email is already in use."}
+                            raise error
                 # end for
+                temp_user = db_client.db_client.db_users.users.find_one(
+                    {"_id": ObjectId(account_id)})
+                print(temp_user)
+                temp_user["email"] = new_user["email"]
+                new_user = UserDb(**temp_user)
+                print(new_user)
                 updated_user = db_client.db_client.db_users.users.find_one_and_update(
                     {'_id': ObjectId(account_id)}, {'$set': new_user}, return_document=ReturnDocument.AFTER)
                 return JSONResponse(content=UserDb.user_schema(updated_user))
@@ -152,6 +183,7 @@ async def update_user(account_id: str, new_user: dict, token: str = Depends(oaut
 async def delete_user(account_id: str, token: str = Depends(oauth2_scheme)):
 
     try:
+        # token = Token.update_token(token)
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         if (type(db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})) != type(None)):
 

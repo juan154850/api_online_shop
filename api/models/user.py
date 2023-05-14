@@ -1,18 +1,17 @@
 # username, email, password, address, contact information, payment information
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, List, Literal
+import re
 
 
 class User(BaseModel):
     id: Optional[str] = None
     first_name: str = Field(max_length=50, min_length=1)
     surname: str = Field(max_length=50, min_length=1)
-    email: str = Field(max_length=300, min_length=1)
+    email: EmailStr
     country: str = Field(max_length=50, min_length=2)
     address: str = Field(max_length=300, min_length=1)
-    cellphone: str = Field(max_length=14, min_length=10)
-    # isVIP: Optional[str] = ("False",)
-    # role: Optional[str] = "User"
+    cellphone: str = Field(..., min_length=9, max_length=15, regex=r"^\+?[0-9]{9,15}$")    
 
     @staticmethod
     def user_schema(user: 'User') -> 'User':
@@ -31,12 +30,17 @@ class User(BaseModel):
     def users_schema(self, users_list: List['User']) -> List['User']:
         return [
             self.user_schema(value) for value in users_list
-        ]    
+        ]       
+    
+    def validate_email(email: str):
+        pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+        return bool(re.match(pattern, email))
 
 
 class UserDb(User):    
     password: str = Field(max_length=30, min_length=1)
-    role: Optional[str] = "user"
+    role: Literal["user", "admin"] = "user"
+
     
     # isVIP: Optional[str] = ("False",)
 
@@ -48,7 +52,7 @@ class UserDb(User):
             "country": "Colombia",
             "password": "secret",            
             "address": "Av 123 #45-6, Medellín, Colombia",
-            "cellphone": "+573002827310",
+            "cellphone": "+xxxxxxxxx",
         }}
 
     def is_admin(self):

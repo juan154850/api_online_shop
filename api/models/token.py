@@ -1,8 +1,11 @@
+from fastapi import Response
 from pydantic import BaseModel
 from datetime import timedelta, datetime
 from jose import jwt
 from passlib.context import CryptContext
 from api.database import DataBase
+import time
+
 
 import os
 
@@ -12,7 +15,6 @@ load_dotenv()
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM")
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -45,6 +47,18 @@ class Token(BaseModel):
         if not self.verify_password(password, user["password"]):
             return False
         return user    
+    
+    def update_token(token: str):
+        decoded_token = jwt.decode(token,SECRET_KEY,ALGORITHM)
+        current_time = int(time.time())
+        expiration_time = decoded_token['exp']        
+        time_left = expiration_time - current_time        
+        if time_left < 300: # less than 5 minutes left
+            new_expiration_time = expiration_time + 300 # add 5 minutes
+            new_token = jwt.encode({**decoded_token, 'exp': new_expiration_time}, SECRET_KEY, algorithm=ALGORITHM)            
+            return new_token
+        else:
+            return token
 
 
 
