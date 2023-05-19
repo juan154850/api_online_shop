@@ -5,14 +5,11 @@ from typing import Optional, List
 
 class Product(BaseModel):
     # id: Optional[str] = None  # Optional field
-    name: str = Field(max_length=100, min_length=1,
-                      default="Name of the product")
-    price: str = Field(max_length=20, min_length=1, default="$price")
-    location: str = Field(max_length=50, min_length=1,
-                          default="Location of the product")
-    image: str = Field(min_length=1, max_length=300,
-                       default="URL of the product")
-    amount: int = Field(min_value=1, max_value=100, default=1)
+    name: str = Field(max_length=100, min_length=1)
+    price: str = Field(max_length=20, min_length=1)
+    location: str = Field(max_length=50, min_length=1)
+    image: str = Field(min_length=1, max_length=300)
+    amount: int = Field(min_value=1, max_value=100)
 
     class Config:
         schema_extra = {

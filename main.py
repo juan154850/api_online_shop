@@ -15,6 +15,11 @@ from fastapi.templating import Jinja2Templates
 # from typing import List  # Response model
 # from schemas.product import products_schema
 
+import logging
+
+logging.basicConfig(filename='myapp.log', level=logging.DEBUG)
+
+
 
 app = FastAPI()
 app.title = "Online Shop Project"

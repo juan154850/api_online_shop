@@ -4,3 +4,4 @@ tests
 venv
 .pytest_cache
 .vscode
+myapp.log

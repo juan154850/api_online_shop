@@ -41,7 +41,7 @@ class Token(BaseModel):
 
     # token.authenticate_user(token, db_client, "juan.bermudez@onlineshop.com", "123456")
     def authenticate_user(self, db: DataBase, email: str, password: str):
-        user = db.get_user("db_users","users","email",email)        
+        user = db.get("db_users","users","email",email)        
         if not user:
             return False
         if not self.verify_password(password, user["password"]):
