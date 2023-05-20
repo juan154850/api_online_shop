@@ -15,6 +15,8 @@ from pymongo.collection import ReturnDocument
 
 from jose import jwt
 
+import re
+
 from dotenv import load_dotenv
 load_dotenv()
 import os
@@ -135,7 +137,13 @@ async def update_product(product_id: str, key: str, value: str | int) -> Product
 async def update_product(product_id: str, new_product: dict, token:str = Depends(oauth2_scheme)) -> Product:
 
     error = "Internal server error, please report the bug and contact with an administrator."
+    
     try:
+
+        if( not (new_product) ):
+            error = "The body can't be empty"
+            raise error 
+
         # Validate the token.
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         user = db_client.get("db_users", "users", "email", token["sub"])
@@ -148,21 +156,45 @@ async def update_product(product_id: str, new_product: dict, token:str = Depends
                 if (type(actual_product) == type(dict())):
                     # The product exists in the database and we can update all the product      
                                              
-                    for key in new_product:                             
-                        if((not actual_product.get(key))):
-                            error = f"The key: '{key}' is invalid"
-                            raise error        
-
+                    for key in new_product:                                
+                        if (not (key in actual_product)):                            
+                            error = f"The key: '{key}' don't exist."
+                            raise error                              
+                                                 
+                        # if((not actual_product.get(key))):
                         if(  ((key == "amount") and ( not isinstance(new_product[key], int) )) ):   
-                            error = "Invalid value for amount, please put a integer value."
-                            raise error                                                                                                
+                            error = "Invalid value for key: 'amount', please put an integer value."
+                            raise error       
                         
-
+                        
+                        if (key == "price"):
+                            patron = r'^\$([0-9]{1,3}(\,[0-9]{3})*|([0-9]+))(\.[0-9]{2})?$'
+                            if not (re.match(patron, new_product["price"])):
+                                # the value is incorrect.
+                                error = f"Invalid value for the key: '{key}'. Please put a valid value in dollars."
+                                raise error   
+                        if( key == "image" ):
+                            patron = r'^https:\/\/.*\.png$'
+                            if not (re.match(patron, new_product["image"])):
+                                error = f"Invalid value for the key: '{key}'. Please put a valid value for an image."
+                                raise error   
+                        if ( key == "_id" ):
+                            error = f"The key: '{key}' can't be edit."
+                            raise error
+                        if( key == "name" ):                            
+                            # html, url, phone, dni, price.
+                            url_validations = [r'^(http|https):\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/\S*)?$', r'^\+\d{1,3}\s?\(\d{1,3}\)\s?\d{3}\-\d{4}$', r'^\d{8}$', r'^\$([0-9]{1,3}(\,[0-9]{3})*|([0-9]+))(\.[0-9]{2})?$', r'<[^>]+>']
+                            for value in url_validations:
+                                if re.match(value, new_product["name"]):
+                                    error = f"The value: '{new_product.get('name')}' in the key: '{key}' are invalid."
+                                    raise error
+                                                                                 
                     # end for 
                     result = db_client.db_client.db_products.products.find_one_and_update({'_id': ObjectId(product_id)}, {'$set': new_product}, return_document=ReturnDocument.AFTER)                     
                     return JSONResponse(content=ProductDataBase.product_schema(result), status_code=status.HTTP_200_OK)
+                    
                 else:
-                    error = "The product does not exists..."
+                    error = f"The product with id: {product_id} does not exists..."
                     raise error
             else:
                 error = "You don't authorize for this action."
