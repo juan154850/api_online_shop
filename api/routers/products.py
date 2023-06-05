@@ -100,37 +100,34 @@ async def create_product(product: Product, token: str = Depends(oauth2_scheme)) 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error)
 
 
+# @product_router.patch("/{product_id}", status_code=200, response_class=JSONResponse, response_model=Product)
+# async def update_product(product_id: str, key: str, value: str | int) -> Product:
+#     product = (db_client.db_client.db_products.products.find_one(
+#         filter={"_id": ObjectId(product_id)}))
+#     if (type(product) == type(dict())):
 
-
-
-@product_router.patch("/{product_id}", status_code=200, response_class=JSONResponse, response_model=Product)
-async def update_product(product_id: str, key: str, value: str | int) -> Product:
-    product = (db_client.db_client.db_products.products.find_one(
-        filter={"_id": ObjectId(product_id)}))
-    if (type(product) == type(dict())):
-
-        if (not product.get(key)):
-            raise HTTPException(
-                status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Invalid key")
-        else:
-            if (key == "amount" and value.isdigit()):
-                value = int(value)
-                new_product = Product.product_schema(db_client.db_client.db_products.products.find_one_and_update(
-                    filter={"_id": ObjectId(product_id)}, update={"$set": {key: value}}, return_document=ReturnDocument.AFTER))
-                return JSONResponse(content=new_product, status_code=status.HTTP_200_OK)
-            else:
-                if (key == "_id"):
-                    raise HTTPException(
-                        401, detail={"Message": "This key cannot be modified."})
-                elif key == "amount":
-                    raise HTTPException(
-                        401, detail={"Message": "The value is not a number."})
-                else:
-                    new_product = Product.product_schema(db_client.db_client.db_products.products.find_one_and_update(
-                        filter={"_id": ObjectId(product_id)}, update={"$set": {key: value}}, return_document=ReturnDocument.AFTER))
-                    return JSONResponse(content=new_product, status_code=status.HTTP_200_OK)
-    else:
-        raise HTTPException(404, detail="The product does not exists...")
+#         if (not product.get(key)):
+#             raise HTTPException(
+#                 status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="Invalid key")
+#         else:
+#             if (key == "amount" and value.isdigit()):
+#                 value = int(value)
+#                 new_product = Product.product_schema(db_client.db_client.db_products.products.find_one_and_update(
+#                     filter={"_id": ObjectId(product_id)}, update={"$set": {key: value}}, return_document=ReturnDocument.AFTER))
+#                 return JSONResponse(content=new_product, status_code=status.HTTP_200_OK)
+#             else:
+#                 if (key == "_id"):
+#                     raise HTTPException(
+#                         401, detail={"Message": "This key cannot be modified."})
+#                 elif key == "amount":
+#                     raise HTTPException(
+#                         401, detail={"Message": "The value is not a number."})
+#                 else:
+#                     new_product = Product.product_schema(db_client.db_client.db_products.products.find_one_and_update(
+#                         filter={"_id": ObjectId(product_id)}, update={"$set": {key: value}}, return_document=ReturnDocument.AFTER))
+#                     return JSONResponse(content=new_product, status_code=status.HTTP_200_OK)
+#     else:
+#         raise HTTPException(404, detail="The product does not exists...")
 
 
 @product_router.put("/{product_id}", response_class=JSONResponse, response_model=Product)

@@ -1,18 +1,36 @@
 # username, email, password, address, contact information, payment information
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field, EmailStr, validator
 from typing import Optional, List, Literal
 import re
-
+from html import escape
 
 class User(BaseModel):
     id: Optional[str] = None
-    first_name: str = Field(max_length=50, min_length=1)
-    surname: str = Field(max_length=50, min_length=1)
+    first_name: str = Field(max_length=50, min_length=1, regex=r'^[a-zA-Z\s]+$')
+    surname: str = Field(max_length=50, min_length=1, regex=r'^[a-zA-Z\s]+$')
     email: EmailStr
-    country: str = Field(max_length=50, min_length=2)
+    country: str = Field(max_length=50, min_length=2, regex=r'^[a-zA-Z\s]+$')
     address: str = Field(max_length=300, min_length=1)
     cellphone: str = Field(..., min_length=9, max_length=15, regex=r"^\+?[0-9]{9,15}$")    
 
+    @validator('address')
+    def validate_address(cls, address):
+        #Validate html and url. 
+        patterns = [r'<(\/*?)(?!(em|p|br\s*\/|strong))\w+?.+?>',r'^(http|https):\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/\S*)?$']
+        for pattern in patterns:
+            if re.match(pattern, address):                        
+                raise ValueError("Please put a valid address.")
+
+        return address
+    
+    @validator('*', pre=True)
+    def validate_xss(cls, value):
+        if isinstance(value, str):
+            escaped_value = escape(value)
+            if escaped_value != value:
+                raise ValueError("The field contains HTML or JavaScript code that is not allowed.")
+        return value
+            
     @staticmethod
     def user_schema(user: 'User') -> 'User':
         return {
@@ -41,8 +59,18 @@ class UserDb(User):
     password: str = Field(max_length=30, min_length=1)
     role: Literal["user", "admin"] = "user"
 
-    
-    # isVIP: Optional[str] = ("False",)
+    @validator('password')
+    def validate_address(cls, password):
+        #Validate html and url. 
+        patterns = [r'<(\/*?)(?!(em|p|br\s*\/|strong))\w+?.+?>',r'^(http|https):\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/\S*)?$']
+        for pattern in patterns:
+            if re.match(pattern, password):                        
+                raise ValueError("Please put a valid address.")
+        
+        pattern = r'^[a-zA-Z0-9_-]+$'
+        if not re.match(pattern, password):
+            raise ValueError("The password can only have special characters such as: _ o - ")
+        return password            
 
     class Config:
         schema_extra = {"example": {

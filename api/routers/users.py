@@ -34,14 +34,11 @@ crypt = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 @users_router.get("", response_class=JSONResponse, response_model=User)
-async def get_users(response: Response, token: str = Depends(oauth2_scheme)) -> List[User]:
+async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
 
-    # error = "Internal server error, please report the bug with the administrator of the page."
-    # try:
+    error = "Internal server error, please report the bug with the administrator of the page."
+    try:
 
-        # print(f"Actual token: {token}")
-        # token = Token.update_token(token)             
-        # print(f"Updated token: {token}")
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         user = db_client.db_client.db_users.users.find_one(
             {"email": token["sub"]})
@@ -52,31 +49,29 @@ async def get_users(response: Response, token: str = Depends(oauth2_scheme)) -> 
         else:
             error = {"Message": "Not authorized"}
             raise error
-    # except:
-    #     raise HTTPException(status_code=400, detail=error)
+    except:
+        raise HTTPException(status_code=400, detail=error)
 
 
 @users_router.get("/{id}")
 async def get_users(id: str, token: str = Depends(oauth2_scheme)):
 
-    error = {"Message": "Error in except"}
-    # token = Token.update_token(token)
+    error = {"Message": "Error in except"}    
     try:
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
         user_token = db_client.db_client.db_users.users.find_one(
             {"email": token["sub"]})
         if (type(user_token) != type(None)):
-            user = db_client.db_client.db_users.users.find_one(
-                {"_id": ObjectId(id)})
-            if (((type(user) != type(None)) and ((user_token["_id"] == user["_id"]))) or ((type(user) != type(None)) and (user_token["role"].lower() == "admin"))):
-                return JSONResponse(content=User.user_schema(user), status_code=200)
+            #validate if the user is admin or is the actual user.             
+            if (user_token["role"].lower() == "admin") or (user_token["_id"] == ObjectId(id)):
+                user = db_client.db_client.db_users.users.find_one({"_id": ObjectId(id)})    
+                return JSONResponse(content=User.user_schema(user), status_code=200)                    
             else:
                 error = {
                     "Message": "The user does not exits or you don not authorized for this action."}
                 raise error
     except:
-        raise HTTPException(
-            status_code=404, detail=error)
+        raise HTTPException(status_code=404, detail=error)
 
 
 @users_router.post("/", response_class=JSONResponse, response_model=UserDb)
