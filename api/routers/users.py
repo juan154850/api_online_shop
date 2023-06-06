@@ -54,9 +54,8 @@ async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
     except:
         raise HTTPException(status_code=400, detail=error)
     
-@users_router.get("/me")
-# , response_class=JSONResponse, response_model=User
-async def get_my_user(token: str = Depends(oauth2_scheme)):
+@users_router.get("/me", response_class=JSONResponse, response_model=User)
+async def get_my_user(token: str = Depends(oauth2_scheme)) -> User:
     """
     Purpose: This endpoint show the information of the logged user.
     """    
@@ -70,8 +69,8 @@ async def get_my_user(token: str = Depends(oauth2_scheme)):
     # end try
 
 
-@users_router.get("/{id}")
-async def get_users(id: str, token: str = Depends(oauth2_scheme)):
+@users_router.get("/{id}", response_class=JSONResponse, response_model=User)
+async def get_users(id: str, token: str = Depends(oauth2_scheme)) -> User:
 
     error = {"Message": "Error in except"}    
     try:
