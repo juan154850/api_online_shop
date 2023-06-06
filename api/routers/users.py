@@ -1,12 +1,14 @@
 from fastapi import APIRouter, status, HTTPException, Depends, Response
 from fastapi.responses import JSONResponse
 
-from api.models.user import User, UserDb
+from api.models.user import User, UserDb, UpdateUserSchema
 from api.database import DataBase
 from api.models.token import Token
 
 from pymongo.server_api import ServerApi
 from pymongo.collection import ReturnDocument
+
+from pydantic import ValidationError
 
 from typing import List
 from passlib.context import CryptContext
@@ -108,75 +110,88 @@ async def create_account(account: UserDb) -> UserDb:
 
 @users_router.put("/{account_id}", response_class=JSONResponse, response_model=UserDb)
 async def update_user(account_id: str, new_user: dict, token: str = Depends(oauth2_scheme)) -> UserDb:
-
-    error = {
-        "Message": "Internal server error, please contact and administrator and report the bug."}
-    # token = Token.update_token(token)
-
+ 
     try:
+        (UpdateUserSchema(**new_user))        
+    except ValidationError  as err:            
+            raise HTTPException(status_code=406,detail=str(err))      
+    
+
+    try:                        
+        if( not (new_user) ):
+            error = "The body can't be empty"
+            raise error 
 
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)
-        user_token = db_client.db_client.db_users.users.find_one(
-            {"email": token["sub"]})
+        user_token = db_client.db_client.db_users.users.find_one({"email": token["sub"]})
 
         if (type(user_token) != type(None)):
-            user = db_client.db_client.db_users.users.find_one(
-                {"_id": ObjectId(account_id)})
+            user = db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})
+
             if (((type(user) != type(None)) and ((user_token["_id"] == user["_id"]))) or ((type(user) != type(None)) and (user_token["role"].lower() == "admin"))):
-                for key in new_user:
-                    if (not user.get(key)):
-                        error = {"Message": "Any key is invalid."}
-                        raise error
+                
+                for key in new_user:   
+
+                    if (not  (key in user)):
+                        error = {"Message": f"The key: '{key}' does not exist."}
+                        raise HTTPException(status_code=400,detail=error)
+                    
+                    if key == "_id":
+                        error = {"Message": f"The key: '{key}' can't be edited."}
+                        raise HTTPException(status_code=406,detail=error)
+                    
                     if (key == "password"):
-                        new_user["password"] = crypt.hash(
-                            secret=new_user["password"])
+                        new_user["password"] = crypt.hash(secret=new_user["password"])
+                        
                     if (key == "role" and user_token["role"].lower() != "admin"):
                         error = {"Message": "Not authorized"}
-                        raise error
+                        raise HTTPException(status_code=406,detail=error)
+                    
                     if ((key == "role") and (new_user["role"] not in ["user", "admin"])):
                         error = {"Message": "Invalid rol"}
-                        raise error
-                    if key == "email":
+                        raise HTTPException(status_code=406,detail=error)
+                    
+                    if key == "email":                        
                         # validate if the email exist, if the email not exits, could can be use it.
-                        search_email = db_client.db_client.db_users.users.find_one(
-                            {"email": new_user["email"]})
+                        search_email = db_client.db_client.db_users.users.find_one({"email": new_user["email"]})
                         if type(search_email) == type(None):
                             # The email is free
                             # Validate the structure of the email
-                            is_a_valid_email = User.validate_email(
-                                new_user["email"])
+                            is_a_valid_email = User.validate_email(new_user["email"])
                             if not is_a_valid_email:
                                 error = {"Message": "Invalid email"}
-                                raise error
+                                raise HTTPException(status_code=406,detail=error)
                         else:
                             error = {
                                 "Message": "This email is already in use."}
-                            raise error
-                # end for
-                temp_user = db_client.db_client.db_users.users.find_one(
-                    {"_id": ObjectId(account_id)})
-                print(temp_user)
-                temp_user["email"] = new_user["email"]
-                new_user = UserDb(**temp_user)
-                print(new_user)
+                            raise HTTPException(status_code=406,detail=error)
+                        
+                # end for           
+                if "email" in new_user:     
+                    temp_user = db_client.db_client.db_users.users.find_one({"_id": ObjectId(account_id)})
+                    temp_user["email"] = new_user["email"]                
+                    new_user = UserDb(**temp_user) #Validate with the schema.         
+                    new_user = dict(new_user)     
+
                 updated_user = db_client.db_client.db_users.users.find_one_and_update(
                     {'_id': ObjectId(account_id)}, {'$set': new_user}, return_document=ReturnDocument.AFTER)
                 return JSONResponse(content=UserDb.user_schema(updated_user))
             else:
                 error = {
                     "Message": "The user does not exits or you don not authorized for this action."}
-                raise error
+                raise HTTPException(status_code=406,detail=error)
         else:
             error = {"Message": "This user does not exist."}
-            raise error
-    except:
+            raise HTTPException(status_code=406,detail=error)
+    except ValidationError as error:
         # if we have an error, send the raise.
-        raise HTTPException(406, detail=error)
+        raise HTTPException(status_code= 406, detail=str(error))
 
 
 @users_router.delete("/{account_id}")
 async def delete_user(account_id: str, token: str = Depends(oauth2_scheme)):
 
+    error ={"Message": "Internal server error, please contact and administrator and report the bug."}
     try:
         # token = Token.update_token(token)
         token = jwt.decode(token, SECRET_KEY, ALGORITHM)

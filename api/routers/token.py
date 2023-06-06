@@ -17,7 +17,7 @@ load_dotenv()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth")
 token_router = APIRouter(tags=["Auth"], prefix="/auth")
 URI = os.getenv("URI")
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 300
 
 
 @token_router.post("", response_model=Token, response_class=JSONResponse)

@@ -56,7 +56,7 @@ class User(BaseModel):
 
 
 class UserDb(User):    
-    password: str = Field(max_length=30, min_length=1)
+    password: str = Field(max_length=300, min_length=1)
     role: Literal["user", "admin"] = "user"
 
     @validator('password')
@@ -65,9 +65,9 @@ class UserDb(User):
         patterns = [r'<(\/*?)(?!(em|p|br\s*\/|strong))\w+?.+?>',r'^(http|https):\/\/[a-zA-Z0-9\-\.]+\.[a-zA-Z]{2,}(\/\S*)?$']
         for pattern in patterns:
             if re.match(pattern, password):                        
-                raise ValueError("Please put a valid address.")
+                raise ValueError("Please put a valid password.")
         
-        pattern = r'^[a-zA-Z0-9_-]+$'
+        pattern = r'^[a-zA-Z0-9_\-.$/]+$'
         if not re.match(pattern, password):
             raise ValueError("The password can only have special characters such as: _ o - ")
         return password            
@@ -88,3 +88,14 @@ class UserDb(User):
             return True
         else:
             return False
+        
+# This class verify all the fields for a user, but when we want to update an user, we need that the field are optional. 
+class UpdateUserSchema(UserDb):    
+    first_name: Optional[str] = Field(None, max_length=50, min_length=1, regex=r'^[a-zA-Z\s]+$')
+    surname: Optional[str]  = Field(None, max_length=50, min_length=1, regex=r'^[a-zA-Z\s]+$')
+    email: Optional[EmailStr]
+    country: Optional[str]  =  Field(None, max_length=50, min_length=2, regex=r'^[a-zA-Z\s]+$')
+    address: Optional[str]  =  Field(None, max_length=300, min_length=1)
+    cellphone: Optional[str]  =  Field(None, min_length=9, max_length=15, regex=r"^\+?[0-9]{9,15}$")
+    password: Optional[str] = Field(None, max_length=300, min_length=1)
+    role: Optional[Literal["user", "admin"]] = "user"    
