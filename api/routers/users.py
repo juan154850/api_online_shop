@@ -53,6 +53,21 @@ async def get_users(token: str = Depends(oauth2_scheme)) -> List[User]:
             raise error
     except:
         raise HTTPException(status_code=400, detail=error)
+    
+@users_router.get("/me")
+# , response_class=JSONResponse, response_model=User
+async def get_my_user(token: str = Depends(oauth2_scheme)):
+    """
+    Purpose: This endpoint show the information of the logged user.
+    """    
+    try:
+        # comment: Get the info of the actual user.
+        token = jwt.decode(token, SECRET_KEY, ALGORITHM)
+        user = db_client.db_client.db_users.users.find_one({"email": token["sub"]})        
+        return JSONResponse(content=User.user_schema(user),status_code=200)
+    except ValidationError as err:
+        raise HTTPException(status_code=400, detail=str(err))
+    # end try
 
 
 @users_router.get("/{id}")
